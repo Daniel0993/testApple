@@ -1,45 +1,108 @@
 import SwiftUI
 
+struct ContentView: View {
+    @State private var isSidebarVisible = false
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                WelcomeView()
+                    .navigationBarItems(leading: Button(action: {
+                        withAnimation {
+                            isSidebarVisible.toggle()
+                        }
+                    }) {
+                        Image(systemName: "line.horizontal.3")
+                            .imageScale(.large)
+                            .padding()
+                    })
+                
+                if isSidebarVisible {
+                    SidebarMenu(isSidebarVisible: $isSidebarVisible)
+                        .transition(.move(edge: .leading))
+                }
+            }
+        }
+        .navigationViewStyle(StackNavigationViewStyle())
+    }
+}
 
+struct SidebarMenu: View {
+    @Binding var isSidebarVisible: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            NavigationLink(destination: WelcomeView()) {
+                Text("Home")
+                    .padding()
+            }
+            
+            NavigationLink(destination: SignupView()) {
+                Text("Sign Up")
+                    .padding()
+            }
+            
+            NavigationLink(destination: SigninView()) {
+                Text("Sign In")
+                    .padding()
+            }
+
+            NavigationLink(destination: SettingsView()) {
+                Text("Settings")
+                    .padding()
+            }
+            
+            Spacer()
+        }
+        .background(Color(UIColor.systemGray6))
+        .edgesIgnoringSafeArea(.all)
+        .frame(maxWidth: 250, alignment: .leading)
+        .gesture(DragGesture().onEnded { value in
+            if value.translation.width < -50 {
+                withAnimation {
+                    isSidebarVisible = false
+                }
+            }
+        })
+    }
+}
 
 struct WelcomeView: View {
     var body: some View {
-        NavigationView {
-            VStack {
-                Image(systemName: "fork.knife")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 100, height: 100)
-                    .foregroundColor(.blue)
-                
-                Text("Welcome to Food Finder!")
-                    .font(.title2)
-                    .fontWeight(.bold)
+        VStack {
+            Image(systemName: "fork.knife")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 100, height: 100)
+                .foregroundColor(.blue)
+            
+            Text("Welcome to Food Finder!")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding()
+            
+            NavigationLink(destination: SignupView()) {
+                Text("Create Account")
+                    .foregroundColor(.white)
                     .padding()
-                
-                NavigationLink(destination: SignupView()) {
-                    Text("Create Account")
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                }
-                .padding()
-                
-                NavigationLink(destination: SigninView()) {
-                    Text("Sign In")
-                        .foregroundColor(.blue)
-                        .padding()
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.blue, lineWidth: 1)
-                        )
-                }
-                .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
             }
-            .navigationTitle("Welcome")
+            .padding()
+            
+            NavigationLink(destination: SigninView()) {
+                Text("Sign In")
+                    .foregroundColor(.blue)
+                    .padding()
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.blue, lineWidth: 1)
+                    )
+            }
             .padding()
         }
+        .navigationTitle("Welcome")
+        .padding()
     }
 }
 
@@ -48,22 +111,20 @@ struct SignupView: View {
     @State private var lastName: String = ""
     @State private var age: String = ""
     @State private var email: String = ""
-    @State private var isSignupComplete = false
+    @State private var isFormValid = false
     @State private var isAgeValid = true
-
-    var isFormValid: Bool {
-        return !firstName.isEmpty && !lastName.isEmpty && isAgeValid && !email.isEmpty
-    }
 
     var body: some View {
         VStack {
             TextField("First Name", text: $firstName)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
+                .onChange(of: firstName) { _ in validateForm() }
 
             TextField("Last Name", text: $lastName)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
+                .onChange(of: lastName) { _ in validateForm() }
 
             TextField("Age", text: $age)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -71,23 +132,17 @@ struct SignupView: View {
                 .padding()
                 .background(isAgeValid ? Color.white : Color.red.opacity(0.3))
                 .onChange(of: age) { newValue in
-                    if let ageInt = Int(newValue), ageInt < 16 {
-                        isAgeValid = false
-                    } else {
-                        isAgeValid = true
-                    }
+                    validateAge(newValue)
+                    validateForm()
                 }
 
             TextField("Email", text: $email)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
                 .disabled(!isAgeValid)
+                .onChange(of: email) { _ in validateForm() }
 
-            Button(action: {
-                if isFormValid {
-                    isSignupComplete = true
-                }
-            }) {
+            NavigationLink(destination: TermsAndConditionsView()) {
                 Text("Sign Up")
                     .foregroundColor(.white)
                     .padding()
@@ -95,17 +150,24 @@ struct SignupView: View {
                     .cornerRadius(10)
             }
             .padding()
-
-            if isSignupComplete {
-                Text("Profile created successfully. Check your email for confirmation.")
-                    .foregroundColor(.green)
-                    .padding()
-            }
+            .disabled(!isFormValid)
 
             Spacer()
         }
         .navigationTitle("Sign Up")
         .padding()
+    }
+
+    private func validateForm() {
+        isFormValid = !firstName.isEmpty && !lastName.isEmpty && isAgeValid && !email.isEmpty
+    }
+
+    private func validateAge(_ age: String) {
+        if let ageInt = Int(age), ageInt < 16 {
+            isAgeValid = false
+        } else {
+            isAgeValid = true
+        }
     }
 }
 
@@ -181,7 +243,6 @@ struct PreferencesView: View {
                     Picker("Allergies", selection: $selectedAllergy) {
                         ForEach(allergies, id: \.self) { allergy in
                             Text(allergy)
-                                
                         }
                     }
                     .pickerStyle(MenuPickerStyle())
@@ -209,8 +270,106 @@ struct PreferencesView: View {
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        WelcomeView()
+struct TermsAndConditionsView: View {
+    @State private var isAgreed = false
+
+    var body: some View {
+        VStack {
+            Text("Terms and Conditions")
+                .font(.title)
+                .padding()
+
+            ScrollView {
+                Text("Here are the terms and conditions...")
+                    .padding()
+            }
+
+            Toggle("I agree to the terms and conditions", isOn: $isAgreed)
+                .padding()
+
+            NavigationLink(destination: PreferencesView(), isActive: $isAgreed) {
+                EmptyView()
+            }
+
+            Button(action: {
+                if isAgreed {
+                    isAgreed = true
+                }
+            }) {
+                Text("Agree")
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(isAgreed ? Color.blue : Color.gray)
+                    .cornerRadius(10)
+            }
+            .padding()
+            .disabled(!isAgreed)
+
+            Spacer()
+        }
+        .navigationTitle("Terms and Conditions")
+        .padding()
     }
 }
+
+struct SettingsView: View {
+    @State private var location: String = "ORLANDO, FL"
+    @State private var profileName: String = "Joe Dirt"
+    @State private var fontSize: String = "Regular"
+    @State private var allergies: String = "Peanuts"
+    @State private var showingDeleteAlert = false
+
+    let fontSizes = ["Small", "Regular", "Large"]
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                Form {
+                    Section(header: Text("Profile")) {
+                        TextField("Location", text: $location)
+                            .padding()
+                        TextField("Profile Name", text: $profileName)
+                            .padding()
+                        Picker("Font size", selection: $fontSize) {
+                            ForEach(fontSizes, id: \.self) {
+                                Text($0)
+                            }
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding()
+                        TextField("Allergies", text: $allergies)
+                            .padding()
+                    }
+
+                    Section {
+                        Button(action: {
+                            showingDeleteAlert = true
+                        }) {
+                            Text("Delete Profile")
+                                .foregroundColor(.red)
+                        }
+                        .alert(isPresented: $showingDeleteAlert) {
+                            Alert(
+                                title: Text("Delete Profile"),
+                                message: Text("Are you sure you want to delete your profile? This action cannot be undone."),
+                                primaryButton: .destructive(Text("Delete")) {
+                                    // Handle profile deletion here
+                                },
+                                secondaryButton: .cancel()
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Settings")
+        }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
+
+
